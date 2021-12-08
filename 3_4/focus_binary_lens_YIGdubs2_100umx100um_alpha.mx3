@@ -1,0 +1,80 @@
+timesteps := 5000
+// FixDt = 20.0e-12
+FixDt_ := 40.0e-12
+runtime := timesteps * FixDt_;
+
+Nx := 1000
+Ny := 1000
+Nz := 1
+
+//Strip found in the Chumak paper
+
+
+dx := 100.0E-9
+dy := 100.0E-9
+dz := 70.0E-9
+
+setgridsize(Nx, Ny, Nz)
+setcellsize(dx, dy, dz)
+
+
+Aex  = 3.65E-12
+alpha= 7.9E-4
+Msat = 142800
+m = uniform(0.0, 0.1, 1.0)
+
+
+
+OutputFormat = OVF2_TEXT
+
+alpha_start :=  1.0E-4  //default / bulk damping
+alpha_end :=  0.5 //maximum damping toward the edge of the structure
+
+dregnum := 10 //number of damping regions per side
+dregthickness := 2;  //thickness of damping regions 
+
+
+for i :=dregnum; i>=0; i--{
+  alpha_local := alpha_start + (alpha_end-alpha_start)*pow(i,2)/pow(dregnum,2)
+  damprect := rect((Nx-(dregnum-i)*dregthickness*2)*dx,(Ny-(dregnum-i)*dregthickness*2)*dy)
+  // print(alpha_local)
+  defregion(i,damprect)
+  alpha.setregion(i, alpha_local)
+}
+
+
+// saturation magnetization
+defregion(255,imageShape("/home/maule/Spintorch_FIB/YIG_Dubs2/plots/binary_pictures_binary_lens_YIGdubs2_100umx100um_alpha/0.png"))
+Msat.setregion(255, 144650)
+
+save(regions)
+save(alpha)
+save(Msat)
+
+// MaxDt = 1e-11
+B_ext = vector(0.0,0.0,0.285)
+relax()
+
+save(m)
+
+source_pos :=  10.0   //Position in relative units
+sigma1x := 20.0E-9     //width of pump source in real units
+
+
+excitation_mask := newVectorMask(Nx, Ny, 1)
+for j:=0; j<Ny; j++{
+	excitation_mask.setVector(source_pos, j, 0, vector(1.0, 0.0, 0.0))
+}
+
+f := 3E+9
+Amp := 1.0E-3
+
+
+autosave(m, timesteps/50*FixDt_)
+tableautosave(FixDt_*10)
+// autosave(B_ext, 1.0E-9)
+
+
+B_ext.add(excitation_mask, Amp*sin(2*pi*f*t))
+
+run(runtime)
